@@ -2,7 +2,6 @@ import multiprocessing
 import multiprocessing.pool
 import sys
 import threading
-from itertools import izip
 from toolz.compatibility import iterkeys, itervalues
 
 
@@ -20,9 +19,11 @@ class Deferred(object):
         self.func = func
 
     def __call__(self, *args, **kwargs):
+        self.e = None
         try:
             self.value, self.exc_info = self.func(*args, **kwargs), None
         except Exception as e:
+            self.e = e
             self.value, self.exc_info = None, sys.exc_info()
         return self
 
@@ -31,7 +32,7 @@ class Deferred(object):
         if not hasattr(self, 'value'):
             self.__call__()
         if self.exc_info:
-            raise self.exc_info[0], self.exc_info[1], self.exc_info[2]
+            raise self.exc_info[0](self.exc_info[1]).with_traceback(self.exc_info[2])
         return self.value
 
 
@@ -111,7 +112,7 @@ def pvalmap(f, d, factory=dict, threads=None, timeout=None):
     """
     rv = factory()
     rv.update(
-        izip(iterkeys(d), pmap(f, itervalues(d), threads, timeout)))
+        zip(iterkeys(d), pmap(f, itervalues(d), threads, timeout)))
     return rv
 
 
@@ -125,5 +126,5 @@ def pkeymap(f, d, factory=dict, threads=None, timeout=None):
     """
     rv = factory()
     rv.update(
-        izip(pmap(f, iterkeys(d), threads, timeout), itervalues(d)))
+        zip(pmap(f, iterkeys(d), threads, timeout), itervalues(d)))
     return rv
